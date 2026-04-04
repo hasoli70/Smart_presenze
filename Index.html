@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SmartPresenze</title>
+<!-- PWA / Home Screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SmartPresenze">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1b3e">
+<meta name="application-name" content="SmartPresenze">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%230d1b3e'/><text x='90' y='125' font-size='100' text-anchor='middle' fill='%237ec8e3'>⚡</text></svg>">
+<link rel="manifest" href="data:application/json,{%22name%22:%22SmartPresenze%22,%22short_name%22:%22Presenze%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%230d1b3e%22,%22theme_color%22:%22%230d1b3e%22}">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0d1b3e;--navy2:#1a2744;--navy3:#253563;
+  --accent:#7ec8e3;--accent2:#3a9fc0;
+  --green:#16a34a;--red:#dc2626;--gold:#f59e0b;
+  --border:#e2e8f0;--bg:#f1f5f9;--white:#fff;
+  --text:#1e293b;--muted:#64748b;
+}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ── SCREENS ─────────────────────────────────── */
+.screen{min-height:100vh;display:none;align-items:center;justify-content:center;padding:20px}
+.screen.active{display:flex}
+#app-screen{display:none;flex-direction:column;min-height:100vh}
+#app-screen.active{display:flex}
+#splash-screen{background:var(--navy)}
+
+/* ── CONFIG CARD ─────────────────────────────── */
+.config-card,.login-card{
+  background:var(--white);border-radius:16px;padding:40px 32px;
+  max-width:440px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.45)
+}
+.brand{
+  font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;
+  color:var(--navy);text-align:center;letter-spacing:-1px;margin-bottom:6px
+}
+.brand span{color:var(--accent2)}
+.brand-sub{text-align:center;color:var(--muted);font-size:11px;margin-bottom:28px;line-height:1.7}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:5px;letter-spacing:.4px;text-transform:uppercase}
+.form-group input,.form-group select{
+  width:100%;padding:10px 12px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;font-family:inherit;color:var(--text);
+  transition:border-color .15s
+}
+.form-group input:focus,.form-group select:focus{
+  outline:none;border-color:var(--navy3);box-shadow:0 0 0 3px rgba(13,27,62,.08)
+}
+.form-group input::placeholder{color:#b0bec5;font-size:12px}
+.btn-full{
+  width:100%;padding:12px;border:none;border-radius:8px;
+  background:var(--navy);color:var(--white);cursor:pointer;
+  font-size:14px;font-weight:600;font-family:inherit;margin-top:8px;
+  transition:background .15s
+}
+.btn-full:hover{background:var(--navy3)}
+.btn-full:disabled{background:#94a3b8;cursor:not-allowed}
+.cfg-note{
+  margin-top:18px;padding:12px 14px;background:#f0f9ff;
+  border:1px solid #bae6fd;border-radius:8px;font-size:11px;color:#0369a1;line-height:1.7
+}
+.cfg-note strong{display:block;margin-bottom:4px}
+
+/* ── USER LIST ───────────────────────────────── */
+.user-list{display:flex;flex-direction:column;gap:8px}
+.user-btn{
+  display:flex;align-items:center;gap:14px;padding:12px 16px;
+  border:1.5px solid var(--border);border-radius:10px;cursor:pointer;
+  background:var(--white);text-align:left;transition:all .15s;width:100%
+}
+.user-btn:hover{border-color:var(--navy3);background:#f8faff;transform:translateX(2px)}
+.u-icon{
+  width:40px;height:40px;border-radius:50%;background:var(--navy);
+  color:var(--accent);display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace;flex-shrink:0
+}
+.u-icon.admin{background:var(--gold);color:var(--navy)}
+.u-name{font-weight:600;font-size:14px;color:var(--navy)}
+.u-role{font-size:11px;color:var(--muted);margin-top:1px}
+.cfg-link{text-align:center;margin-top:18px}
+.cfg-link button{
+  background:transparent;border:none;color:var(--muted);
+  font-size:11px;cursor:pointer;text-decoration:underline
+}
+
+/* ── HEADER ──────────────────────────────────── */
+header{
+  background:var(--navy);color:var(--white);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;height:52px;position:sticky;top:0;z-index:200;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);flex-shrink:0;flex-wrap:wrap;gap:0
+}
+.h-left{display:flex;align-items:center;gap:10px}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:700;letter-spacing:-.5px}
+.logo span{color:var(--accent)}
+.h-sep{color:var(--navy3);font-size:18px}
+.h-user{font-size:12px;color:#adc8e8;display:flex;align-items:center;gap:6px}
+.badge-admin{
+  background:var(--gold);color:var(--navy);font-size:9px;
+  padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.4px
+}
+.h-center{display:flex;align-items:center;gap:8px}
+.nav-btn{
+  background:rgba(255,255,255,.1);border:none;color:var(--white);
+  cursor:pointer;padding:3px 11px;border-radius:5px;font-size:14px
+}
+.nav-btn:hover{background:rgba(255,255,255,.2)}
+.month-label{
+  font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;
+  color:var(--accent);min-width:185px;text-align:center;letter-spacing:.3px
+}
+.h-right{display:flex;align-items:center;gap:7px}
+
+/* ── SYNC INDICATOR ──────────────────────────── */
+.sync-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#94a3b8;flex-shrink:0;transition:background .4s
+}
+.sync-dot.connected{background:#22c55e;box-shadow:0 0 6px #22c55e88}
+.sync-dot.syncing{background:var(--gold);animation:pulse .6s infinite}
+.sync-dot.error{background:var(--red)}
+.sync-label{font-size:10px;color:#adc8e8}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+.h-btn{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+  color:#adc8e8;cursor:pointer;padding:4px 11px;border-radius:5px;font-size:11px;
+  transition:all .1s
+}
+.h-btn:hover{color:var(--white);border-color:rgba(255,255,255,.35)}
+.h-btn.green{background:#166534;border-color:#16a34a;color:#86efac}
+
+/* ── LEGEND ──────────────────────────────────── */
+.legend{
+  background:var(--navy2);padding:5px 18px;
+  display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0
+}
+.leg{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;
+  padding:2px 8px;border-radius:3px;white-space:nowrap;font-weight:600
+}
+
+/* ── CONTENT ─────────────────────────────────── */
+#content{padding:14px 12px;display:flex;flex-direction:column;gap:16px}
+.loading-msg{text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
+.loading-spinner{
+  width:32px;height:32px;border:3px solid var(--border);
+  border-top-color:var(--navy);border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 16px
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── REPARTO BLOCK ───────────────────────────── */
+.reparto-block{
+  background:var(--white);border-radius:10px;overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,.07);border:1px solid var(--border)
+}
+.reparto-header{
+  background:var(--navy);padding:9px 16px;
+  display:flex;align-items:center;gap:10px
+}
+.rep-name{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)}
+.rep-prop{font-size:11px;color:#adc8e8;flex:1}
+.rep-add{
+  background:#155724;border:1px solid #28a745;color:#86efac;
+  cursor:pointer;padding:3px 11px;border-radius:4px;font-size:11px;font-weight:600
+}
+.empty-rep{padding:14px 18px;color:var(--muted);font-size:12px;font-style:italic}
+
+/* ── SUMMARY BAR ─────────────────────────────── */
+.sum-bar{
+  background:var(--navy2);padding:6px 16px;
+  display:flex;gap:14px;flex-wrap:wrap;align-items:center
+}
+.sum-item{font-family:'IBM Plex Mono',monospace;font-size:10px;color:#adc8e8}
+.sum-val{color:var(--white);font-weight:700}
+
+/* ── TABLE ───────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-family:'IBM Plex Mono',monospace;font-size:11px}
+th,td{border:1px solid #dde3ed}
+.th-name{
+  background:var(--navy2);color:var(--white);padding:6px 14px;
+  text-align:left;font-weight:600;min-width:165px;font-size:11px;
+  white-space:nowrap;position:sticky;left:0;z-index:10
+}
+.th-day{
+  padding:2px 0;text-align:center;min-width:27px;width:27px;
+  background:var(--navy2);color:var(--accent);border-color:#253563
+}
+.th-day.we{background:var(--navy);color:var(--gold)}
+.day-n{font-size:11px;font-weight:700}
+.day-l{font-size:9px;opacity:.7}
+.th-stat{
+  background:var(--navy2);color:var(--accent);
+  padding:6px 5px;text-align:center;font-size:10px;min-width:36px;white-space:nowrap
+}
+.td-name{
+  padding:5px 14px;white-space:nowrap;font-weight:600;font-size:11px;
+  position:sticky;left:0;z-index:5;background:inherit;border-right:2px solid var(--border)
+}
+tr:nth-child(even) .td-name{background:#f8fafd}
+tr:nth-child(odd) .td-name{background:var(--white)}
+.td-cell{
+  text-align:center;width:27px;height:27px;font-size:10px;font-weight:700;
+  cursor:pointer;user-select:none;vertical-align:middle;transition:filter .08s
+}
+.td-cell:hover{filter:brightness(.84)}
+.td-cell.we-empty{opacity:.38}
+.td-n{text-align:center;font-size:11px;padding:2px 5px;font-weight:600}
+.td-saldo{font-weight:700;font-size:12px;text-align:center;padding:2px 5px}
+
+/* ── MODAL ───────────────────────────────────── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);
+  display:none;align-items:center;justify-content:center;z-index:1000;padding:16px
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--white);border-radius:14px;padding:24px;
+  max-width:460px;width:100%;max-height:85vh;overflow-y:auto;
+  box-shadow:0 24px 64px rgba(0,0,0,.4)
+}
+.modal-title{
+  font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px;
+  font-family:'IBM Plex Mono',monospace
+}
+.modal-sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+.st-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:18px}
+.st-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 4px;border:2px solid transparent;border-radius:8px;
+  cursor:pointer;font-family:'IBM Plex Mono',monospace;transition:transform .1s
+}
+.st-btn:hover{transform:scale(1.05)}
+.st-btn.active{border-color:rgba(0,0,0,.6);box-shadow:0 0 0 2px rgba(0,0,0,.25)}
+.st-btn strong{font-size:13px}
+.st-btn small{font-size:9px;opacity:.85}
+.m-actions{display:flex;gap:8px;margin-top:4px}
+.btn-prim{flex:1;padding:10px;border:none;border-radius:7px;background:var(--navy);color:var(--white);cursor:pointer;font-size:13px;font-weight:600}
+.btn-sec{flex:1;padding:10px;border:1px solid var(--border);border-radius:7px;background:var(--white);cursor:pointer;font-size:13px}
+.btn-del{flex:1;padding:10px;border:none;border-radius:7px;background:var(--red);color:var(--white);cursor:pointer;font-size:13px;font-weight:600}
+.btn-del:hover{background:#b91c1c}
+.btn-del:disabled{background:#94a3b8;cursor:not-allowed}
+
+/* ── TOAST ───────────────────────────────────── */
+.toast{
+  position:fixed;bottom:20px;right:20px;
+  background:var(--navy);color:var(--white);
+  padding:11px 18px;border-radius:9px;font-size:13px;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);z-index:9999;
+  transform:translateY(80px);transition:transform .3s;pointer-events:none;max-width:300px
+}
+.toast.show{transform:translateY(0)}
+.toast.err{background:#991b1b}
+
+/* ── MULTI-SELECT FLOATING BAR ──────────────── */
+.sel-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--navy);color:var(--white);
+  padding:10px 16px;display:none;align-items:center;gap:10px;
+  z-index:900;box-shadow:0 -4px 20px rgba(0,0,0,.4);flex-wrap:wrap;
+  animation:slideUp .25s ease-out
+}
+.sel-bar.open{display:flex}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sel-info{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);white-space:nowrap}
+.sel-statuses{display:flex;gap:5px;flex-wrap:wrap;flex:1}
+.sel-st-btn{
+  padding:6px 10px;border:2px solid transparent;border-radius:6px;
+  cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
+  transition:transform .1s
+}
+.sel-st-btn:hover{transform:scale(1.08)}
+.sel-cancel{
+  background:transparent;border:1px solid rgba(255,255,255,.3);
+  color:#adc8e8;cursor:pointer;padding:6px 14px;border-radius:6px;font-size:11px;
+  white-space:nowrap
+}
+.sel-cancel:hover{color:var(--white);border-color:rgba(255,255,255,.5)}
+.td-cell.selected{outline:3px solid var(--gold);outline-offset:-2px;animation:selPulse .6s ease-in-out infinite alternate}
+@keyframes selPulse{from{outline-color:var(--gold)}to{outline-color:#fbbf24}}
+
+/* ── TABS ───────────────────────────────────── */
+.tab-bar{
+  display:flex;gap:0;background:var(--navy2);padding:0 18px;flex-shrink:0
+}
+.tab-btn{
+  padding:8px 18px;border:none;background:transparent;color:#adc8e8;
+  cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+  border-bottom:3px solid transparent;transition:all .15s
+}
+.tab-btn:hover{color:var(--white);background:rgba(255,255,255,.05)}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);background:rgba(255,255,255,.05)}
+
+/* ── RIEPILOGO GENERALE ─────────────────────── */
+.riepilogo-block{
+  background:var(--white);border-radius:10px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);border:2px solid var(--accent2);
+  margin-top:8px
+}
+.riepilogo-header{
+  background:linear-gradient(135deg,var(--navy),var(--navy3));
+  padding:12px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap
+}
+.riepilogo-header .rep-name{font-size:14px;color:var(--gold)}
+.riepilogo-header .rep-prop{color:#adc8e8;font-size:12px;flex:1}
+.btn-download{
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);
+  color:var(--white);cursor:pointer;padding:5px 12px;border-radius:5px;
+  font-size:11px;font-weight:600;font-family:inherit;transition:all .15s
+}
+.btn-download:hover{background:rgba(255,255,255,.25)}
+.rie-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:1px;background:var(--border);padding:1px}
+.rie-card{
+  background:var(--white);padding:10px 14px;display:flex;flex-direction:column;gap:2px
+}
+.rie-label{font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:600;letter-spacing:.3px}
+.rie-val{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;color:var(--navy)}
+.rie-val.green{color:var(--green)}
+.rie-val.red{color:var(--red)}
+.rie-val.gold{color:#d97706}
+.rie-tbl{width:100%;font-family:'IBM Plex Mono',monospace;font-size:11px;border-collapse:collapse}
+.rie-tbl th{
+  background:var(--navy2);color:var(--accent);padding:7px 10px;
+  text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.3px;
+  position:sticky;top:0;white-space:nowrap
+}
+.rie-tbl th.num{text-align:center}
+.rie-tbl td{padding:6px 10px;border-bottom:1px solid var(--border)}
+.rie-tbl td.num{text-align:center;font-weight:600}
+.rie-tbl tr:hover{background:#f0f4ff}
+.rie-tbl .rie-rep-tag{
+  font-size:9px;background:var(--navy);color:var(--accent);
+  padding:1px 6px;border-radius:3px;margin-left:6px;white-space:nowrap
+}
+/* ── SEASON VIEW ────────────────────────────── */
+#season-content{padding:14px 12px;display:none;flex-direction:column;gap:16px}
+#season-content.active{display:flex}
+
+@media(max-width:600px){
+  header{height:auto;padding:8px 12px;flex-wrap:wrap;gap:6px}
+  .h-center{order:3;width:100%;justify-content:center}
+  .month-label{min-width:160px;font-size:12px}
+  .sel-bar{padding:8px 10px;gap:6px}
+  .sel-st-btn{padding:5px 7px;font-size:10px}
+}
+@media print{
+  header,.legend,.rep-add,.h-right,.sel-bar{display:none!important}
+  .tbl-wrap{overflow:visible}
+  .reparto-block{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ CONFIG SCREEN ═══ -->
+<div class="screen active" id="cfg-screen" style="background:var(--navy)">
+  <div class="config-card">
+    <div class="brand">⚡ SMART<span>PRESENZE</span></div>
+    <div class="brand-sub">Configurazione Supabase — prima installazione</div>
+    <div class="form-group">
+      <label>Supabase Project URL</label>
+      <input id="cfg-url" type="url" placeholder="https://xxxxxx.supabase.co">
+    </div>
+    <div class="form-group">
+      <label>Anon Public Key</label>
+      <input id="cfg-key" type="text" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+    </div>
+    <button class="btn-full" id="cfg-save-btn" onclick="saveConfig()">Connetti e continua →</button>
+    <div class="cfg-note">
+      <strong>Dove trovo queste informazioni?</strong>
+      Dashboard Supabase → Settings → API<br>
+      • <b>Project URL</b>: campo "Project URL"<br>
+      • <b>Anon Key</b>: campo "anon public"
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div class="screen" id="login-screen" style="background:var(--navy)">
+  <div class="login-card">
+    <div class="brand">⚡ SMART<span>PRESENZE</span></div>
+    <div class="brand-sub">
+      Gestione Presenze del Personale<br>
+      RESIDENCEHOTELS SPA — Val Gardena · Inverno 2026
+    </div>
+    <div class="form-group">
+      <label>Username</label>
+      <input id="login-user" type="text" placeholder="Inserisci il tuo username" autocapitalize="none" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="login-pass" type="password" placeholder="Inserisci la password" autocomplete="current-password">
+    </div>
+    <div id="login-error" style="color:#dc2626;font-size:12px;text-align:center;margin-bottom:8px;display:none"></div>
+    <button class="btn-full" onclick="doLogin()">Accedi</button>
+    <div class="cfg-link" style="margin-top:14px">
+      <button onclick="resetConfig()">⚙ Cambia configurazione Supabase</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app-screen">
+  <header>
+    <div class="h-left">
+      <span class="logo">⚡ SMART<span>PRESENZE</span></span>
+      <span class="h-sep">|</span>
+      <span class="h-user">
+        <span id="h-uname">—</span>
+        <span class="badge-admin" id="admin-badge" style="display:none">ADMIN</span>
+      </span>
+    </div>
+    <div class="h-center">
+      <button class="nav-btn" onclick="prevMonth()">◀</button>
+      <span class="month-label" id="month-lbl">—</span>
+      <button class="nav-btn" onclick="nextMonth()">▶</button>
+    </div>
+    <div class="h-right">
+      <div class="sync-dot" id="sync-dot" title="Stato connessione"></div>
+      <span class="sync-label" id="sync-lbl">Connessione...</span>
+      <button class="h-btn green" id="btn-add-emp-hdr" style="display:none" onclick="openAddEmp(null)">+ Dipendente</button>
+      <button class="h-btn" onclick="logout()">Esci</button>
+    </div>
+  </header>
+  <div class="legend" id="legend"></div>
+  <div class="tab-bar" id="tab-bar">
+    <button class="tab-btn active" data-tab="month" onclick="switchTab('month')">Mese</button>
+    <button class="tab-btn" data-tab="season" onclick="switchTab('season')">Stagione</button>
+  </div>
+  <div id="content">
+    <div class="loading-msg"><div class="loading-spinner"></div>Caricamento dati...</div>
+  </div>
+  <div id="season-content"></div>
+</div>
+
+<!-- ═══ CELL MODAL ═══ -->
+<div class="modal-bg" id="cell-modal">
+  <div class="modal">
+    <div class="modal-title" id="cm-title">—</div>
+    <div class="modal-sub" id="cm-sub">—</div>
+    <div class="st-grid" id="st-grid"></div>
+    <div class="m-actions">
+      <button class="btn-del" id="cm-del-btn" onclick="deleteCurrentCell()">🗑 Cancella</button>
+      <button class="btn-sec" onclick="closeModal('cell-modal')">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD EMPLOYEE MODAL ═══ -->
+<div class="modal-bg" id="emp-modal">
+  <div class="modal">
+    <div class="modal-title">Aggiungi Dipendente</div>
+    <div class="modal-sub">Il dipendente sarà visibile su tutti i dispositivi in tempo reale.</div>
+    <div class="form-group"><label>Nome e Cognome</label>
+      <input id="e-nome" type="text" placeholder="Es. Marco Bianchi"></div>
+    <div class="form-group"><label>Reparto</label>
+      <select id="e-rep"></select></div>
+    <div class="form-group"><label>Struttura</label>
+      <select id="e-prop">
+        <option>Hotel Antares</option>
+        <option>Residence Antares</option>
+        <option>Residence Boè</option>
+        <option>Residence Lores</option>
+      </select></div>
+    <div class="m-actions">
+      <button class="btn-prim" onclick="addEmployee()">✓ Aggiungi</button>
+      <button class="btn-sec" onclick="closeModal('emp-modal')">Annulla</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MULTI-SELECT BAR ═══ -->
+<div class="sel-bar" id="sel-bar">
+  <span class="sel-info" id="sel-info">0 celle</span>
+  <div class="sel-statuses" id="sel-statuses"></div>
+  <button class="sel-cancel" onclick="clearSelection()">✕ Annulla</button>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══ SUPABASE JS ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+const STATUSES = {
+  'P' : {label:'Presente',     bg:'#16a34a',fg:'#fff'},
+  'R' : {label:'Riposo',       bg:'#1d6fb0',fg:'#fff'},
+  'F' : {label:'Ferie',        bg:'#d97706',fg:'#fff'},
+  'M' : {label:'Malattia',     bg:'#ca8a04',fg:'#fff'},
+  'MT': {label:'Mal.+Ticket',  bg:'#92400e',fg:'#fde68a'},
+  'PO': {label:'Permesso',     bg:'#7c3aed',fg:'#fff'},
+  'FP': {label:'Festività',    bg:'#be185d',fg:'#fff'},
+  'AS': {label:'Assenza',      bg:'#dc2626',fg:'#fff'},
+  'ST': {label:'Straordinario',bg:'#0f766e',fg:'#fff'},
+  ''  : {label:'—',            bg:'#f8fafc',fg:'#cbd5e1'},
+};
+
+const USERS = [
+  {id:'admin', username:'admin',      password:'Admin2026!',   nome:'Oliver (Admin)',     role:'admin', repartoId:null,   icon:'A'},
+  {id:'cric',  username:'ricevimento', password:'Ricev2026!',  nome:'Capo Ricevimento',   role:'capo',  repartoId:'ric',  icon:'R'},
+  {id:'chk',   username:'housekeeping',password:'House2026!',  nome:'Capo Housekeeping',  role:'capo',  repartoId:'hk',   icon:'H'},
+  {id:'ccuc',  username:'cucina',      password:'Cucin2026!',  nome:'Capo Cucina',        role:'capo',  repartoId:'cuc',  icon:'C'},
+  {id:'csala', username:'sala',        password:'SalaB2026!',  nome:'Capo Sala / Bar',    role:'capo',  repartoId:'sala', icon:'S'},
+  {id:'cman',  username:'manutenzione',password:'Manut2026!',  nome:'Capo Manutenzione',  role:'capo',  repartoId:'man',  icon:'M'},
+  {id:'cspa',  username:'spa',         password:'SpaCe2026!',  nome:'Capo SPA',           role:'capo',  repartoId:'spa',  icon:'W'},
+];
+
+const MONTHS_IT=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno',
+                 'Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const DAYS_IT=['D','L','M','M','G','V','S'];
+
+// ─── STATE ─────────────────────────────────────────────────────────────────
+let sb = null;          // Supabase client
+let realtimeCh = null;  // Realtime channel
+let state = {
+  user:      null,
+  year:      new Date().getFullYear(), month: new Date().getMonth(),
+  reparti:   [],
+  employees: [],
+  presenze:  {},   // "YYYY-MM-DD_empId" => status
+  cumulative: [],  // all presenze from season start for riposi calc
+};
+
+// Multi-select state
+let multiSel = [];  // [{empId, day, nome}]
+
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+function getConfig(){ 
+  try{ return JSON.parse(localStorage.getItem('sp_cfg')||'null'); }
+  catch{ return null; }
+}
+function saveConfig(){
+  const url=document.getElementById('cfg-url').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!url||!key){ showToast('Inserisci URL e chiave anon',true); return; }
+  if(!url.startsWith('https://')){ showToast('URL non valido (deve iniziare con https://)',true); return; }
+  localStorage.setItem('sp_cfg',JSON.stringify({url,key}));
+  initSupabase({url,key});
+}
+function resetConfig(){
+  localStorage.removeItem('sp_cfg');
+  showScreen('cfg-screen');
+}
+
+// ─── SUPABASE INIT ──────────────────────────────────────────────────────────
+function initSupabase(cfg){
+  sb = supabase.createClient(cfg.url, cfg.key);
+  showScreen('login-screen');
+  renderLogin();
+  setSyncStatus('connected','Online');
+}
+
+// ─── SYNC STATUS ───────────────────────────────────────────────────────────
+function setSyncStatus(type, label){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-lbl');
+  dot.className='sync-dot '+(type||'');
+  if(lbl) lbl.textContent=label||'';
+}
+
+// ─── SCREEN ROUTING ────────────────────────────────────────────────────────
+function showScreen(id){
+  ['cfg-screen','login-screen','app-screen'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(!el) return;
+    if(s==='app-screen'){
+      el.classList.toggle('active',s===id);
+    } else {
+      el.style.display='none';
+      el.classList.remove('active');
+    }
+  });
+  if(id==='app-screen'){
+    document.getElementById('app-screen').classList.add('active');
+  } else {
+    const el=document.getElementById(id);
+    el.style.display='flex';
+    el.classList.add('active');
+  }
+}
+
+// ─── LOGIN ─────────────────────────────────────────────────────────────────
+function renderLogin(){
+  // Reset campi login
+  const userField=document.getElementById('login-user');
+  const passField=document.getElementById('login-pass');
+  const errEl=document.getElementById('login-error');
+  if(userField) userField.value='';
+  if(passField) passField.value='';
+  if(errEl) errEl.style.display='none';
+  // Enter key per login
+  [userField,passField].forEach(el=>{
+    if(el) el.onkeydown=e=>{ if(e.key==='Enter') doLogin(); };
+  });
+}
+
+function doLogin(){
+  const username=document.getElementById('login-user').value.trim().toLowerCase();
+  const password=document.getElementById('login-pass').value;
+  const errEl=document.getElementById('login-error');
+  if(!username||!password){
+    errEl.textContent='Inserisci username e password.';
+    errEl.style.display='block'; return;
+  }
+  const user=USERS.find(u=>u.username.toLowerCase()===username && u.password===password);
+  if(!user){
+    errEl.textContent='Username o password non validi.';
+    errEl.style.display='block';
+    document.getElementById('login-pass').value='';
+    return;
+  }
+  errEl.style.display='none';
+  login(user);
+}
+
+async function login(user){
+  state.user=user;
+  document.getElementById('h-uname').textContent=user.nome;
+  document.getElementById('admin-badge').style.display=user.role==='admin'?'inline':'none';
+  document.getElementById('btn-add-emp-hdr').style.display=user.role==='admin'?'inline-block':'none';
+  showScreen('app-screen');
+  renderLegend();
+  await loadAllData();
+  subscribeRealtime();
+}
+
+function logout(){
+  if(realtimeCh) sb.removeChannel(realtimeCh);
+  state.user=null; state.presenze={}; state.employees=[]; state.reparti=[]; state.cumulative=[];
+  currentTab='month';
+  showScreen('login-screen');
+}
+
+// ─── DATA LOADING ───────────────────────────────────────────────────────────
+async function loadAllData(){
+  document.getElementById('content').innerHTML=
+    '<div class="loading-msg"><div class="loading-spinner"></div>Caricamento dati...</div>';
+  setSyncStatus('syncing','Sincronizzazione...');
+  try {
+    // Calcola fine mese corrente per query mensile
+    const mStart=`${state.year}-${String(state.month+1).padStart(2,'0')}-01`;
+    const mEnd=`${state.year}-${String(state.month+1).padStart(2,'0')}-${String(daysInMonth(state.year,state.month)).padStart(2,'0')}`;
+    // Calcola fine mese corrente per query cumulativa (da inizio stagione a fine mese visualizzato)
+    const cumEnd=mEnd;
+    const [rRes,eRes,pRes,cumRes]=await Promise.all([
+      sb.from('sp_reparti').select('*').order('nome'),
+      sb.from('sp_employees').select('*').eq('attivo',true).order('nome'),
+      sb.from('sp_presenze').select('*').gte('data',mStart).lte('data',mEnd),
+      sb.from('sp_presenze').select('*').gte('data','2025-11-01').lte('data',cumEnd).limit(50000)
+    ]);
+    if(rRes.error) throw rRes.error;
+    if(eRes.error) throw eRes.error;
+    if(pRes.error) throw pRes.error;
+    if(cumRes.error) throw cumRes.error;
+    state.reparti=rRes.data||[];
+    state.employees=eRes.data||[];
+    state.cumulative=cumRes.data||[];
+    // rebuild presenze map
+    state.presenze={};
+    (pRes.data||[]).forEach(p=>{ state.presenze[p.id]=p.status; });
+    setSyncStatus('connected','Online');
+    renderContent();
+  } catch(e){
+    setSyncStatus('error','Errore');
+    document.getElementById('content').innerHTML=
+      `<div class="loading-msg" style="color:#dc2626">
+        Errore di connessione Supabase.<br><small>${e.message}</small><br><br>
+        <button class="btn-prim" style="max-width:200px;margin:0 auto" onclick="loadAllData()">Riprova</button>
+      </div>`;
+    showToast('Errore: '+e.message,true);
+  }
+}
+
+// ─── REALTIME ───────────────────────────────────────────────────────────────
+function subscribeRealtime(){
+  if(realtimeCh) sb.removeChannel(realtimeCh);
+  realtimeCh = sb.channel('sp-changes')
+    .on('postgres_changes',{event:'*',schema:'public',table:'sp_presenze'},payload=>{
+      const {eventType,new:n,old:o}=payload;
+      if(eventType==='INSERT'||eventType==='UPDATE'){
+        // Only update if same month
+        const d=new Date(n.data);
+        if(d.getFullYear()===state.year && d.getMonth()===state.month){
+          state.presenze[n.id]=n.status;
+          renderContent();
+          setSyncStatus('connected','Aggiornato '+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}));
+        }
+      } else if(eventType==='DELETE'){
+        delete state.presenze[o.id];
+        renderContent();
+      }
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'sp_employees'},()=>loadAllData())
+    .on('postgres_changes',{event:'*',schema:'public',table:'sp_reparti'},()=>loadAllData())
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED') setSyncStatus('connected','Real-time attivo');
+      else if(status==='CHANNEL_ERROR') setSyncStatus('error','Errore real-time');
+    });
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────
+function daysInMonth(y,m){ return new Date(y,m+1,0).getDate(); }
+function dayOfWeek(y,m,d){ return new Date(y,m,d).getDay(); }
+function isWeekend(y,m,d){ const w=dayOfWeek(y,m,d); return w===0||w===6; }
+function presKey(empId,day){
+  return `${state.year}-${String(state.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}_${empId}`;
+}
+function presDate(day){
+  return `${state.year}-${String(state.month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function getStatus(empId,day){ return state.presenze[presKey(empId,day)]||''; }
+
+async function setStatus(empId,day,code){
+  const id=presKey(empId,day);
+  setSyncStatus('syncing','Salvataggio...');
+  // Optimistic update
+  if(code==='') delete state.presenze[id]; else state.presenze[id]=code;
+  renderContent();
+  try {
+    if(code===''){
+      const {error}=await sb.from('sp_presenze').delete().eq('id',id);
+      if(error) throw error;
+    } else {
+      const {error}=await sb.from('sp_presenze').upsert({
+        id, emp_id:empId, data:presDate(day), status:code,
+        updated_by:state.user?.id, updated_at:new Date().toISOString()
+      });
+      if(error) throw error;
+    }
+    setSyncStatus('connected','Salvato '+ new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e){
+    setSyncStatus('error','Errore salvataggio');
+    showToast('Errore: '+e.message,true);
+    // rollback
+    await loadAllData();
+  }
+}
+
+function calcRiposi(empId){
+  // Mese corrente: usa state.presenze (sempre aggiornato con update ottimistici)
+  const dim=daysInMonth(state.year,state.month);
+  let workMese=0, usedMese=0;
+  for(let d=1;d<=dim;d++){
+    const s=getStatus(empId,d);
+    if(s==='P'||s==='ST') workMese++;
+    if(s==='R') usedMese++;
+  }
+  // Mesi precedenti: usa state.cumulative ESCLUDENDO il mese corrente (già contato sopra)
+  const curPrefix=`${state.year}-${String(state.month+1).padStart(2,'0')}`;
+  let workPrev=0, usedPrev=0;
+  (state.cumulative||[]).forEach(p=>{
+    if(p.emp_id!==empId) return;
+    if(p.data && p.data.startsWith(curPrefix)) return; // salta mese corrente
+    if(p.status==='P'||p.status==='ST') workPrev++;
+    if(p.status==='R') usedPrev++;
+  });
+  // Totali cumulativi = mesi precedenti + mese corrente
+  const workCum=workPrev+workMese;
+  const usedCum=usedPrev+usedMese;
+  const maturatiCum=Math.floor(workCum/6);
+  const saldoCum=maturatiCum-usedCum;
+  return {
+    workMese, usedMese,
+    maturatiMese: Math.floor(workMese/6),
+    workCum, usedCum, maturatiCum, saldoCum
+  };
+}
+function countSt(empId,code){
+  let c=0; const dim=daysInMonth(state.year,state.month);
+  for(let d=1;d<=dim;d++) if(getStatus(empId,d)===code) c++;
+  return c;
+}
+
+// ─── NAVIGATION ────────────────────────────────────────────────────────────
+function prevMonth(){
+  if(state.month===0){state.month=11;state.year--;}else state.month--;
+  updateMonthLabel(); loadAllData();
+}
+function nextMonth(){
+  if(state.month===11){state.month=0;state.year++;}else state.month++;
+  updateMonthLabel(); loadAllData();
+}
+function updateMonthLabel(){
+  document.getElementById('month-lbl').textContent=
+    `${MONTHS_IT[state.month].toUpperCase()} ${state.year}`;
+}
+
+// ─── LEGEND ────────────────────────────────────────────────────────────────
+function renderLegend(){
+  const el=document.getElementById('legend'); el.innerHTML='';
+  Object.entries(STATUSES).forEach(([c,s])=>{
+    if(!c) return;
+    const sp=document.createElement('span');
+    sp.className='leg';
+    sp.style.background=s.bg; sp.style.color=s.fg;
+    sp.textContent=`${c}=${s.label}`;
+    el.appendChild(sp);
+  });
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────────────────
+function renderContent(){
+  updateMonthLabel();
+  const ct=document.getElementById('content'); ct.innerHTML='';
+  const visRep=state.user?.role==='admin'
+    ? state.reparti
+    : state.reparti.filter(r=>r.id===state.user?.repartoId);
+  if(!visRep.length){
+    ct.innerHTML='<div class="loading-msg">Nessun reparto disponibile.</div>'; return;
+  }
+
+  const dim=daysInMonth(state.year,state.month);
+  const days=[...Array(dim)].map((_,i)=>i+1);
+
+  visRep.forEach(rep=>{
+    const emps=state.employees.filter(e=>e.reparto_id===rep.id);
+    const blk=document.createElement('div'); blk.className='reparto-block';
+
+    // Header
+    blk.innerHTML=`<div class="reparto-header">
+      <span class="rep-name">▌ ${rep.nome}</span>
+      <span class="rep-prop">${rep.property}</span>
+      <button class="rep-add" onclick="openAddEmp('${rep.id}')">+ Dipendente</button>
+    </div>`;
+
+    if(!emps.length){
+      blk.innerHTML+=`<div class="empty-rep">Nessun dipendente. Clicca "+ Dipendente" per aggiungere.</div>`;
+    } else {
+      // Summary bar
+      const totP=emps.reduce((a,e)=>a+countSt(e.id,'P'),0);
+      const totR=emps.reduce((a,e)=>a+countSt(e.id,'R'),0);
+      const totM=emps.reduce((a,e)=>a+countSt(e.id,'M'),0);
+      const totF=emps.reduce((a,e)=>a+countSt(e.id,'F'),0);
+      blk.innerHTML+=`<div class="sum-bar">
+        <span class="sum-item">Presenti: <span class="sum-val">${totP}</span></span>
+        <span class="sum-item">Riposi: <span class="sum-val">${totR}</span></span>
+        <span class="sum-item">Malattia: <span class="sum-val">${totM}</span></span>
+        <span class="sum-item">Ferie: <span class="sum-val">${totF}</span></span>
+        <span class="sum-item">Personale: <span class="sum-val">${emps.length}</span></span>
+      </div>`;
+
+      // Table
+      const wrap=document.createElement('div'); wrap.className='tbl-wrap';
+      const tbl=document.createElement('table');
+
+      // THEAD
+      let ht=`<thead><tr><th class="th-name">Dipendente</th>`;
+      days.forEach(d=>{
+        const we=isWeekend(state.year,state.month,d);
+        ht+=`<th class="th-day${we?' we':''}" title="${MONTHS_IT[state.month]} ${d}">
+          <div class="day-n">${d}</div>
+          <div class="day-l">${DAYS_IT[dayOfWeek(state.year,state.month,d)]}</div>
+        </th>`;
+      });
+      ht+=`<th class="th-stat">P</th><th class="th-stat">R</th>
+           <th class="th-stat">F</th><th class="th-stat">M</th>
+           <th class="th-stat" title="Giorni lavorati cumulativi stagione">GG</th>
+           <th class="th-stat" title="Riposi Maturati (1 ogni 6 gg lavorati)">Mat.</th>
+           <th class="th-stat" title="Riposi usati cumulativi">Usati</th>
+           <th class="th-stat" title="Saldo Riposi: Mat. - Usati">±R</th></tr></thead>`;
+      tbl.innerHTML=ht;
+
+      // TBODY
+      const tb=document.createElement('tbody');
+      emps.forEach((emp,ei)=>{
+        const rip=calcRiposi(emp.id);
+        const tr=document.createElement('tr');
+        tr.style.background=ei%2===0?'#fff':'#f8fafd';
+        let row=`<td class="td-name">${emp.nome}</td>`;
+        days.forEach(d=>{
+          const st=getStatus(emp.id,d);
+          const s=STATUSES[st]||STATUSES[''];
+          const we=isWeekend(state.year,state.month,d);
+          const esc=emp.nome.replace(/'/g,"\\'");
+          row+=`<td class="td-cell${we&&!st?' we-empty':''}"
+            data-sel="${emp.id}_${d}"
+            style="background:${s.bg};color:${s.fg}"
+            onclick="onCellClick('${emp.id}',${d},'${esc}',event)"
+            ontouchstart="onCellTouchStart('${emp.id}',${d},'${esc}')"
+            ontouchend="onCellTouchEnd('${emp.id}',${d},'${esc}',event)"
+            title="${s.label}">${st||(we?'·':'')}</td>`;
+        });
+        const sc=rip.saldoCum<0?'#dc2626':rip.saldoCum>0?'#16a34a':'#64748b';
+        const sb2=rip.saldoCum<0?'#fee2e2':rip.saldoCum>0?'#dcfce7':'transparent';
+        row+=`<td class="td-n">${countSt(emp.id,'P')}</td>
+              <td class="td-n">${countSt(emp.id,'R')}</td>
+              <td class="td-n">${countSt(emp.id,'F')}</td>
+              <td class="td-n">${countSt(emp.id,'M')}</td>
+              <td class="td-n" title="Giorni lavorati stagione">${rip.workCum}</td>
+              <td class="td-n" title="Maturati: ${rip.workCum}÷6=${rip.maturatiCum}">${rip.maturatiCum}</td>
+              <td class="td-n">${rip.usedCum}</td>
+              <td class="td-saldo" style="background:${sb2};color:${sc}">${rip.saldoCum>0?'+':''}${rip.saldoCum}</td>`;
+        tr.innerHTML=row; tb.appendChild(tr);
+      });
+
+      // Totali reparto
+      const totr=document.createElement('tr');
+      totr.style.background='#e8edf5';
+      let rt=`<td class="td-name" style="font-size:10px;color:#475569;font-weight:700">TOTALE REPARTO</td>`;
+      days.forEach(d=>{
+        const presN=emps.filter(e=>getStatus(e.id,d)==='P').length;
+        const bg=presN===0&&!isWeekend(state.year,state.month,d)?'#fee2e2':
+                 presN===emps.length?'#dcfce7':'transparent';
+        rt+=`<td class="td-cell" style="background:${bg};color:#374151;font-size:9px;cursor:default">
+          ${presN>0?presN:''}</td>`;
+      });
+      const totRip=emps.reduce((a,e)=>{const r=calcRiposi(e.id);return{w:a.w+r.workCum,m:a.m+r.maturatiCum,u:a.u+r.usedCum};},{w:0,m:0,u:0});
+      rt+=`<td class="td-n" style="font-weight:700">${emps.reduce((a,e)=>a+countSt(e.id,'P'),0)}</td>
+           <td class="td-n" style="font-weight:700">${emps.reduce((a,e)=>a+countSt(e.id,'R'),0)}</td>
+           <td class="td-n" style="font-weight:700">${emps.reduce((a,e)=>a+countSt(e.id,'F'),0)}</td>
+           <td class="td-n" style="font-weight:700">${emps.reduce((a,e)=>a+countSt(e.id,'M'),0)}</td>
+           <td class="td-n" style="font-weight:700">${totRip.w}</td>
+           <td class="td-n" style="font-weight:700">${totRip.m}</td>
+           <td class="td-n" style="font-weight:700">${totRip.u}</td>
+           <td class="td-saldo"></td>`;
+      totr.innerHTML=rt; tb.appendChild(totr);
+
+      tbl.appendChild(tb); wrap.appendChild(tbl); blk.appendChild(wrap);
+    }
+    ct.appendChild(blk);
+  });
+
+  // ─── RIEPILOGO GENERALE MENSILE ──────────────────────────────────────────
+  renderRiepilogo(ct,visRep);
+  // Re-apply multi-select highlight
+  updateSelHighlight();
+}
+
+function renderRiepilogo(ct,visRep){
+  const allEmps=[];
+  visRep.forEach(rep=>{
+    state.employees.filter(e=>e.reparto_id===rep.id).forEach(emp=>{
+      allEmps.push({...emp, _repNome:rep.nome});
+    });
+  });
+  if(!allEmps.length) return;
+
+  const blk=document.createElement('div'); blk.className='riepilogo-block';
+
+  // Calcola totali generali
+  const codes=Object.keys(STATUSES).filter(c=>c!=='');
+  let grandTotals={};
+  codes.forEach(c=>grandTotals[c]=0);
+  allEmps.forEach(emp=>{
+    codes.forEach(c=>grandTotals[c]+=countSt(emp.id,c));
+  });
+
+  // Header con download
+  blk.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">RIEPILOGO GENERALE — ${MONTHS_IT[state.month].toUpperCase()} ${state.year}</span>
+    <span class="rep-prop">${allEmps.length} dipendenti</span>
+    <button class="btn-download" onclick="downloadRiepilogoCSV('month')">CSV</button>
+  </div>`;
+
+  // Card grid con totali
+  const grid=document.createElement('div'); grid.className='rie-grid';
+  const cardData=[
+    {label:'Presenze',val:grandTotals['P']||0,cls:'green'},
+    {label:'Riposi',val:grandTotals['R']||0,cls:''},
+    {label:'Ferie',val:grandTotals['F']||0,cls:'gold'},
+    {label:'Malattia',val:grandTotals['M']||0,cls:'red'},
+    {label:'Mal.+Ticket',val:grandTotals['MT']||0,cls:'red'},
+    {label:'Permessi',val:grandTotals['PO']||0,cls:''},
+    {label:'Festività',val:grandTotals['FP']||0,cls:''},
+    {label:'Assenze',val:grandTotals['AS']||0,cls:'red'},
+    {label:'Straordinari',val:grandTotals['ST']||0,cls:'green'},
+  ];
+  cardData.forEach(cd=>{
+    const c=document.createElement('div'); c.className='rie-card';
+    c.innerHTML=`<span class="rie-label">${cd.label}</span><span class="rie-val ${cd.cls}">${cd.val}</span>`;
+    grid.appendChild(c);
+  });
+  blk.appendChild(grid);
+
+  // Tabella dettaglio per dipendente
+  const wrap=document.createElement('div'); wrap.className='tbl-wrap';
+  wrap.style.maxHeight='400px'; wrap.style.overflowY='auto';
+  let html=`<table class="rie-tbl"><thead><tr>
+    <th>Dipendente</th><th>Reparto</th>`;
+  codes.forEach(c=>html+=`<th class="num" style="background:${STATUSES[c].bg};color:${STATUSES[c].fg}">${c}</th>`);
+  html+=`<th class="num" style="background:var(--navy2);color:var(--accent)">GG</th>
+         <th class="num" style="background:var(--navy2);color:var(--accent)">Mat.</th>
+         <th class="num" style="background:var(--navy2);color:var(--accent)">Usati</th>
+         <th class="num" style="background:var(--navy2);color:var(--accent)">GG</th>
+         <th class="num" style="background:var(--navy2);color:var(--accent)">Mat.</th>
+         <th class="num" style="background:var(--navy2);color:var(--accent)">Usati</th>
+         <th class="num" style="background:var(--navy);color:var(--gold)">±R</th></tr></thead><tbody>`;
+
+  allEmps.forEach(emp=>{
+    const rip=calcRiposi(emp.id);
+    const sc=rip.saldoCum<0?'color:#dc2626':rip.saldoCum>0?'color:#16a34a':'';
+    html+=`<tr><td>${emp.nome}</td><td><span class="rie-rep-tag">${emp._repNome}</span></td>`;
+    codes.forEach(c=>{
+      const v=countSt(emp.id,c);
+      html+=`<td class="num">${v||''}</td>`;
+    });
+    html+=`<td class="num">${rip.workCum}</td>
+           <td class="num">${rip.maturatiCum}</td>
+           <td class="num">${rip.usedCum}</td>
+           <td class="num" style="${sc};font-weight:700">${rip.saldoCum>0?'+':''}${rip.saldoCum}</td></tr>`;
+  });
+
+  // Riga totali
+  const totRipRie=allEmps.reduce((a,e)=>{const r=calcRiposi(e.id);return{w:a.w+r.workCum,m:a.m+r.maturatiCum,u:a.u+r.usedCum};},{w:0,m:0,u:0});
+  html+=`<tr style="background:#e8edf5;font-weight:700"><td>TOTALE</td><td></td>`;
+  codes.forEach(c=>html+=`<td class="num">${grandTotals[c]||''}</td>`);
+  html+=`<td class="num">${totRipRie.w}</td><td class="num">${totRipRie.m}</td><td class="num">${totRipRie.u}</td>
+         <td class="num">${totRipRie.m-totRipRie.u>0?'+':''}${totRipRie.m-totRipRie.u}</td></tr>`;
+
+  html+=`</tbody></table>`;
+  wrap.innerHTML=html;
+  blk.appendChild(wrap);
+  ct.appendChild(blk);
+}
+
+// ─── CELL CLICK (single or multi) ───────────────────────────────────────────
+let _cmEmpId=null, _cmDay=null, _cmNome='';
+
+function onCellClick(empId,day,nome,e){
+  if(e && (e.ctrlKey || e.metaKey || e.shiftKey)){
+    toggleMultiSel(empId,day,nome); return;
+  }
+  if(multiSel.length>0){
+    toggleMultiSel(empId,day,nome); return;
+  }
+  openCellModal(empId,day,nome);
+}
+
+// ─── MULTI-SELECT ───────────────────────────────────────────────────────────
+function toggleMultiSel(empId,day,nome){
+  const idx=multiSel.findIndex(s=>s.empId===empId && s.day===day);
+  if(idx>=0) multiSel.splice(idx,1); else multiSel.push({empId,day,nome});
+  updateSelBar(); updateSelHighlight();
+}
+function clearSelection(){
+  multiSel=[];
+  updateSelBar(); updateSelHighlight();
+}
+function updateSelBar(){
+  const bar=document.getElementById('sel-bar');
+  const info=document.getElementById('sel-info');
+  const stDiv=document.getElementById('sel-statuses');
+  if(multiSel.length===0){ bar.classList.remove('open'); return; }
+  bar.classList.add('open');
+  info.textContent=`${multiSel.length} cell${multiSel.length>1?'e':'a'}`;
+  stDiv.innerHTML='';
+  Object.entries(STATUSES).forEach(([code,s])=>{
+    if(code==='') return;
+    const btn=document.createElement('button');
+    btn.className='sel-st-btn';
+    btn.style.background=s.bg; btn.style.color=s.fg;
+    btn.textContent=code; btn.title=s.label;
+    btn.onclick=()=>applyMultiStatus(code);
+    stDiv.appendChild(btn);
+  });
+  const delBtn=document.createElement('button');
+  delBtn.className='sel-st-btn';
+  delBtn.style.background='#991b1b'; delBtn.style.color='#fff';
+  delBtn.textContent='DEL'; delBtn.title='Cancella tutto';
+  delBtn.onclick=()=>applyMultiStatus('');
+  stDiv.appendChild(delBtn);
+}
+function updateSelHighlight(){
+  document.querySelectorAll('.td-cell.selected').forEach(el=>el.classList.remove('selected'));
+  multiSel.forEach(s=>{
+    const cell=document.querySelector(`[data-sel="${s.empId}_${s.day}"]`);
+    if(cell) cell.classList.add('selected');
+  });
+}
+async function applyMultiStatus(code){
+  const items=[...multiSel];
+  clearSelection();
+  setSyncStatus('syncing','Salvataggio multiplo...');
+  const label=code?(STATUSES[code]?.label||code):'Cancellato';
+  for(const {empId,day} of items){
+    const id=presKey(empId,day);
+    if(code==='') delete state.presenze[id]; else state.presenze[id]=code;
+  }
+  renderContent();
+  try{
+    for(const {empId,day} of items){
+      const id=presKey(empId,day);
+      if(code===''){
+        const {error}=await sb.from('sp_presenze').delete().eq('id',id);
+        if(error) throw error;
+      } else {
+        const {error}=await sb.from('sp_presenze').upsert({
+          id, emp_id:empId, data:presDate(day), status:code,
+          updated_by:state.user?.id, updated_at:new Date().toISOString()
+        });
+        if(error) throw error;
+      }
+    }
+    setSyncStatus('connected','Salvato '+new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}));
+    showToast(`${label} applicato a ${items.length} celle`);
+  }catch(e){
+    setSyncStatus('error','Errore salvataggio');
+    showToast('Errore: '+e.message,true);
+    await loadAllData();
+  }
+}
+
+// ─── LONG-PRESS PER MOBILE ─────────────────────────────────────────────────
+let _lpTimer=null;
+function onCellTouchStart(empId,day,nome){
+  _lpTimer=setTimeout(()=>{ _lpTimer=null; toggleMultiSel(empId,day,nome); },500);
+}
+function onCellTouchEnd(empId,day,nome,e){
+  if(_lpTimer){
+    clearTimeout(_lpTimer); _lpTimer=null;
+    if(multiSel.length>0){ e.preventDefault(); toggleMultiSel(empId,day,nome); }
+  } else { e.preventDefault(); }
+}
+
+// ─── CELL MODAL (single) ───────────────────────────────────────────────────
+function openCellModal(empId,day,nome){
+  _cmEmpId=empId; _cmDay=day; _cmNome=nome;
+  document.getElementById('cm-title').textContent=nome;
+  document.getElementById('cm-sub').textContent=
+    `${String(day).padStart(2,'0')} ${MONTHS_IT[state.month]} ${state.year}  ·  `+
+    ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'][dayOfWeek(state.year,state.month,day)];
+  const cur=getStatus(empId,day);
+  const delBtn=document.getElementById('cm-del-btn');
+  delBtn.style.display=cur?'block':'none';
+  const grid=document.getElementById('st-grid'); grid.innerHTML='';
+  Object.entries(STATUSES).forEach(([code,s])=>{
+    if(code==='') return;
+    const btn=document.createElement('button');
+    btn.className=`st-btn${code===cur?' active':''}`;
+    btn.style.background=s.bg; btn.style.color=s.fg;
+    btn.innerHTML=`<strong>${code}</strong><small>${s.label}</small>`;
+    btn.onclick=async()=>{
+      closeModal('cell-modal');
+      await setStatus(empId,day,code);
+      showToast(`${nome}: ${code} · ${day} ${MONTHS_IT[state.month]}`);
+    };
+    grid.appendChild(btn);
+  });
+  openModal('cell-modal');
+}
+
+async function deleteCurrentCell(){
+  if(!_cmEmpId||!_cmDay) return;
+  closeModal('cell-modal');
+  await setStatus(_cmEmpId,_cmDay,'');
+  showToast(`${_cmNome}: stato cancellato · ${_cmDay} ${MONTHS_IT[state.month]}`);
+}
+
+// ─── ADD EMPLOYEE ────────────────────────────────────────────────────────────
+function openAddEmp(defRep){
+  const sel=document.getElementById('e-rep'); sel.innerHTML='';
+  state.reparti.forEach(r=>{
+    const o=document.createElement('option');
+    o.value=r.id; o.textContent=r.nome;
+    if(r.id===defRep) o.selected=true;
+    sel.appendChild(o);
+  });
+  document.getElementById('e-nome').value='';
+  openModal('emp-modal');
+}
+
+async function addEmployee(){
+  const nome=document.getElementById('e-nome').value.trim();
+  const repId=document.getElementById('e-rep').value;
+  const prop=document.getElementById('e-prop').value;
+  if(!nome){ document.getElementById('e-nome').focus(); return; }
+  const emp={id:'e'+Date.now(),nome,reparto_id:repId,property:prop,attivo:true};
+  const {error}=await sb.from('sp_employees').insert(emp);
+  if(error){ showToast('Errore: '+error.message,true); return; }
+  state.employees.push(emp);
+  closeModal('emp-modal');
+  renderContent();
+  showToast(`✓ ${nome} aggiunto con successo`);
+}
+
+// ─── MODALS ──────────────────────────────────────────────────────────────────
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+['cell-modal','emp-modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){
+    if(e.target===this) closeModal(id);
+  });
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(multiSel.length>0){ clearSelection(); return; }
+    closeModal('cell-modal');closeModal('emp-modal');
+  }
+});
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let _tt;
+function showToast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(err?' err':'');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ─── TAB SWITCHING ──────────────────────────────────────────────────────────
+let currentTab='month';
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  const monthEl=document.getElementById('content');
+  const seasonEl=document.getElementById('season-content');
+  const navCenter=document.querySelector('.h-center');
+  if(tab==='month'){
+    monthEl.style.display='flex'; seasonEl.style.display='none'; seasonEl.classList.remove('active');
+    if(navCenter) navCenter.style.display='flex';
+  } else {
+    monthEl.style.display='none'; seasonEl.style.display='flex'; seasonEl.classList.add('active');
+    if(navCenter) navCenter.style.display='none';
+    loadSeasonData();
+  }
+}
+
+// ─── DOWNLOAD CSV ───────────────────────────────────────────────────────────
+function downloadRiepilogoCSV(type){
+  const codes=Object.keys(STATUSES).filter(c=>c!=='');
+  let csv='\uFEFF'; // BOM per Excel
+  if(type==='month'){
+    csv+='Dipendente;Reparto;'+codes.join(';')+';GG Lavorati;Maturati;Usati;Saldo R\n';
+    const visRep=state.user?.role==='admin'?state.reparti:state.reparti.filter(r=>r.id===state.user?.repartoId);
+    visRep.forEach(rep=>{
+      state.employees.filter(e=>e.reparto_id===rep.id).forEach(emp=>{
+        const rip=calcRiposi(emp.id);
+        const vals=codes.map(c=>countSt(emp.id,c));
+        csv+=`${emp.nome};${rep.nome};${vals.join(';')};${rip.workCum};${rip.maturatiCum};${rip.usedCum};${rip.saldoCum}\n`;
+      });
+    });
+    downloadFile(csv,`Riepilogo_${MONTHS_IT[state.month]}_${state.year}.csv`);
+  } else {
+    csv+='Dipendente;Reparto;'+codes.join(';')+'\n';
+    if(!_seasonData) return;
+    const visRep=state.user?.role==='admin'?state.reparti:state.reparti.filter(r=>r.id===state.user?.repartoId);
+    const repMap={}; visRep.forEach(r=>repMap[r.id]=r.nome);
+    const empTotals={};
+    state.employees.forEach(emp=>{
+      if(!repMap[emp.reparto_id]) return;
+      empTotals[emp.id]={nome:emp.nome,rep:repMap[emp.reparto_id],counts:{}};
+      codes.forEach(c=>empTotals[emp.id].counts[c]=0);
+    });
+    _seasonData.forEach(p=>{
+      if(empTotals[p.emp_id] && p.status) empTotals[p.emp_id].counts[p.status]=(empTotals[p.emp_id].counts[p.status]||0)+1;
+    });
+    Object.values(empTotals).forEach(et=>{
+      csv+=`${et.nome};${et.rep};${codes.map(c=>et.counts[c]||0).join(';')}\n`;
+    });
+    downloadFile(csv,`Riepilogo_Stagione_${state.year}.csv`);
+  }
+}
+function downloadFile(content,filename){
+  const blob=new Blob([content],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Download: '+filename);
+}
+
+// ─── SEASON DATA & RENDER ───────────────────────────────────────────────────
+let _seasonData=null;
+const SEASON_MONTHS=[[11,2025],[0,2026],[1,2026],[2,2026],[3,2026],[4,2026],[5,2026],[6,2026],[7,2026],[8,2026],[9,2026],[10,2026]];
+// Stagione: Nov 2025 → Ott 2026 (tipica stagione hotel)
+
+async function loadSeasonData(){
+  const ct=document.getElementById('season-content');
+  ct.innerHTML='<div class="loading-msg"><div class="loading-spinner"></div>Caricamento dati stagione...</div>';
+  setSyncStatus('syncing','Caricamento stagione...');
+  try{
+    const {data,error}=await sb.from('sp_presenze').select('*')
+      .gte('data','2025-11-01')
+      .lte('data','2026-10-31');
+    if(error) throw error;
+    _seasonData=data||[];
+    setSyncStatus('connected','Online');
+    renderSeason(ct);
+  }catch(e){
+    setSyncStatus('error','Errore');
+    ct.innerHTML=`<div class="loading-msg" style="color:#dc2626">Errore caricamento stagione.<br><small>${e.message}</small><br><br>
+      <button class="btn-prim" style="max-width:200px;margin:0 auto" onclick="loadSeasonData()">Riprova</button></div>`;
+  }
+}
+
+function renderSeason(ct){
+  ct.innerHTML='';
+  const visRep=state.user?.role==='admin'?state.reparti:state.reparti.filter(r=>r.id===state.user?.repartoId);
+  const codes=Object.keys(STATUSES).filter(c=>c!=='');
+  const repMap={}; visRep.forEach(r=>repMap[r.id]=r.nome);
+  const allEmps=[];
+  visRep.forEach(rep=>{
+    state.employees.filter(e=>e.reparto_id===rep.id).forEach(emp=>allEmps.push({...emp,_repNome:rep.nome}));
+  });
+  if(!allEmps.length){ ct.innerHTML='<div class="loading-msg">Nessun dato disponibile.</div>'; return; }
+
+  // Calcola per dipendente: totali stagionali e per mese
+  const empStats={};
+  allEmps.forEach(emp=>{
+    empStats[emp.id]={nome:emp.nome,rep:emp._repNome,total:{},monthly:{}};
+    codes.forEach(c=>empStats[emp.id].total[c]=0);
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      empStats[emp.id].monthly[key]={};
+      codes.forEach(c=>empStats[emp.id].monthly[key][c]=0);
+    });
+  });
+  (_seasonData||[]).forEach(p=>{
+    if(!empStats[p.emp_id]||!p.status) return;
+    empStats[p.emp_id].total[p.status]=(empStats[p.emp_id].total[p.status]||0)+1;
+    const d=new Date(p.data);
+    const key=`${d.getFullYear()}-${d.getMonth()}`;
+    if(empStats[p.emp_id].monthly[key])
+      empStats[p.emp_id].monthly[key][p.status]=(empStats[p.emp_id].monthly[key][p.status]||0)+1;
+  });
+
+  // Grand totals
+  const grandTotals={}; codes.forEach(c=>grandTotals[c]=0);
+  allEmps.forEach(emp=>codes.forEach(c=>grandTotals[c]+=(empStats[emp.id]?.total[c]||0)));
+
+  // Block
+  const blk=document.createElement('div'); blk.className='riepilogo-block';
+  blk.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">RIEPILOGO STAGIONE — Nov 2025 / Ott 2026</span>
+    <span class="rep-prop">${allEmps.length} dipendenti</span>
+    <button class="btn-download" onclick="downloadRiepilogoCSV('season')">CSV</button>
+  </div>`;
+
+  // Card grid
+  const grid=document.createElement('div'); grid.className='rie-grid';
+  const cardData=[
+    {label:'Presenze',val:grandTotals['P']||0,cls:'green'},
+    {label:'Riposi',val:grandTotals['R']||0,cls:''},
+    {label:'Ferie',val:grandTotals['F']||0,cls:'gold'},
+    {label:'Malattia',val:grandTotals['M']||0,cls:'red'},
+    {label:'Mal.+Ticket',val:grandTotals['MT']||0,cls:'red'},
+    {label:'Permessi',val:grandTotals['PO']||0,cls:''},
+    {label:'Festività',val:grandTotals['FP']||0,cls:''},
+    {label:'Assenze',val:grandTotals['AS']||0,cls:'red'},
+    {label:'Straordinari',val:grandTotals['ST']||0,cls:'green'},
+  ];
+  cardData.forEach(cd=>{
+    const c=document.createElement('div'); c.className='rie-card';
+    c.innerHTML=`<span class="rie-label">${cd.label}</span><span class="rie-val ${cd.cls}">${cd.val}</span>`;
+    grid.appendChild(c);
+  });
+  blk.appendChild(grid);
+
+  // Tabella totale stagionale per dipendente
+  const wrap=document.createElement('div'); wrap.className='tbl-wrap';
+  wrap.style.maxHeight='500px'; wrap.style.overflowY='auto';
+  let html=`<table class="rie-tbl"><thead><tr><th>Dipendente</th><th>Reparto</th>`;
+  codes.forEach(c=>html+=`<th class="num" style="background:${STATUSES[c].bg};color:${STATUSES[c].fg}">${c}</th>`);
+  html+=`</tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    html+=`<tr><td>${emp.nome}</td><td><span class="rie-rep-tag">${emp._repNome}</span></td>`;
+    codes.forEach(c=>html+=`<td class="num">${es.total[c]||''}</td>`);
+    html+=`</tr>`;
+  });
+  html+=`<tr style="background:#e8edf5;font-weight:700"><td>TOTALE</td><td></td>`;
+  codes.forEach(c=>html+=`<td class="num">${grandTotals[c]||''}</td>`);
+  html+=`</tr></tbody></table>`;
+  wrap.innerHTML=html; blk.appendChild(wrap);
+  ct.appendChild(blk);
+
+  // Tabella andamento mensile (presenze per mese)
+  const blk2=document.createElement('div'); blk2.className='riepilogo-block'; blk2.style.marginTop='16px';
+  blk2.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">ANDAMENTO MENSILE</span>
+    <span class="rep-prop">Presenze per dipendente, mese per mese</span>
+  </div>`;
+  const wrap2=document.createElement('div'); wrap2.className='tbl-wrap';
+  wrap2.style.maxHeight='500px'; wrap2.style.overflowY='auto';
+  let h2=`<table class="rie-tbl"><thead><tr><th>Dipendente</th>`;
+  SEASON_MONTHS.forEach(([m,y])=>h2+=`<th class="num">${MONTHS_IT[m].substring(0,3)} ${String(y).slice(2)}</th>`);
+  h2+=`<th class="num" style="background:var(--navy);color:var(--gold)">TOT</th></tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    let tot=0;
+    h2+=`<tr><td>${emp.nome}</td>`;
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      const p=es.monthly[key]?.['P']||0;
+      tot+=p;
+      const bg=p===0?'':'';
+      h2+=`<td class="num" style="${p===0?'color:#ccc':''}">${p||'-'}</td>`;
+    });
+    h2+=`<td class="num" style="font-weight:700;color:var(--navy)">${tot}</td></tr>`;
+  });
+  // Riga totali
+  h2+=`<tr style="background:#e8edf5;font-weight:700"><td>TOTALE</td>`;
+  let grandP=0;
+  SEASON_MONTHS.forEach(([m,y])=>{
+    const key=`${y}-${m}`;
+    let mTot=0;
+    allEmps.forEach(emp=>mTot+=(empStats[emp.id]?.monthly[key]?.['P']||0));
+    grandP+=mTot;
+    h2+=`<td class="num">${mTot||'-'}</td>`;
+  });
+  h2+=`<td class="num" style="color:var(--navy)">${grandP}</td></tr></tbody></table>`;
+  wrap2.innerHTML=h2; blk2.appendChild(wrap2);
+  ct.appendChild(blk2);
+}
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+const DEFAULT_CFG = {
+  url: 'https://arbmmgkpthrbmymguvau.supabase.co',
+  key: 'sb_publishable_hPmK781YcwNNOPPNOMk9uQ_6D5NZlkU'
+};
+
+(function boot(){
+  const cfg = getConfig() || DEFAULT_CFG;
+  initSupabase(cfg);
+})();
+</script>
+</body>
+</html>
