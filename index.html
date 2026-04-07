@@ -962,11 +962,16 @@ function renderRiepilogo(ct,visRep){
     <button class="btn-download" onclick="downloadRiepilogoCSV('month')">CSV</button>
   </div>`;
 
+  // Diff riposi globale (somma saldoCum di tutti i dipendenti)
+  const diffRipGlob=allEmps.reduce((a,e)=>a+calcRiposi(e.id).saldoCum,0);
+  const diffRipCls=diffRipGlob<0?'red':diffRipGlob>0?'green':'';
+
   // Card grid con totali
   const grid=document.createElement('div'); grid.className='rie-grid';
   const cardData=[
     {label:'Presenze',val:grandTotals['P']||0,cls:'green'},
     {label:'Riposi',val:grandTotals['R']||0,cls:''},
+    {label:'Diff. Riposi',val:(diffRipGlob>0?'+':'')+diffRipGlob,cls:diffRipCls},
     {label:'Ferie',val:grandTotals['F']||0,cls:'gold'},
     {label:'Malattia',val:grandTotals['M']||0,cls:'red'},
     {label:'Mal.+Ticket',val:grandTotals['MT']||0,cls:'red'},
@@ -1339,11 +1344,16 @@ function renderSeason(ct){
     <button class="btn-download" onclick="downloadRiepilogoCSV('season')">CSV</button>
   </div>`;
 
+  // Diff riposi globale stagionale
+  const diffRipGlobS=allEmps.reduce((a,e)=>a+calcRiposi(e.id).saldoCum,0);
+  const diffRipClsS=diffRipGlobS<0?'red':diffRipGlobS>0?'green':'';
+
   // Card grid
   const grid=document.createElement('div'); grid.className='rie-grid';
   const cardData=[
     {label:'Presenze',val:grandTotals['P']||0,cls:'green'},
     {label:'Riposi',val:grandTotals['R']||0,cls:''},
+    {label:'Diff. Riposi',val:(diffRipGlobS>0?'+':'')+diffRipGlobS,cls:diffRipClsS},
     {label:'Ferie',val:grandTotals['F']||0,cls:'gold'},
     {label:'Malattia',val:grandTotals['M']||0,cls:'red'},
     {label:'Mal.+Ticket',val:grandTotals['MT']||0,cls:'red'},
@@ -1364,15 +1374,23 @@ function renderSeason(ct){
   wrap.style.maxHeight='500px'; wrap.style.overflowY='auto';
   let html=`<table class="rie-tbl"><thead><tr><th>Dipendente</th><th>Reparto</th>`;
   codes.forEach(c=>html+=`<th class="num" style="background:${STATUSES[c].bg};color:${STATUSES[c].fg}">${c}</th>`);
+  html+=`<th class="num" title="Delta riposi (saldo cumulativo)">Δ Rip</th>`;
   html+=`</tr></thead><tbody>`;
+  let sumDelta=0;
   allEmps.forEach(emp=>{
     const es=empStats[emp.id];
+    const dRip=calcRiposi(emp.id).saldoCum;
+    sumDelta+=dRip;
+    const dCls=dRip<0?'red':dRip>0?'green':'';
     html+=`<tr><td>${emp.nome}</td><td><span class="rie-rep-tag">${emp._repNome}</span></td>`;
     codes.forEach(c=>html+=`<td class="num">${es.total[c]||''}</td>`);
+    html+=`<td class="num ${dCls}" style="font-weight:700">${(dRip>0?'+':'')+dRip}</td>`;
     html+=`</tr>`;
   });
   html+=`<tr style="background:#e8edf5;font-weight:700"><td>TOTALE</td><td></td>`;
   codes.forEach(c=>html+=`<td class="num">${grandTotals[c]||''}</td>`);
+  const tCls=sumDelta<0?'red':sumDelta>0?'green':'';
+  html+=`<td class="num ${tCls}">${(sumDelta>0?'+':'')+sumDelta}</td>`;
   html+=`</tr></tbody></table>`;
   wrap.innerHTML=html; blk.appendChild(wrap);
   ct.appendChild(blk);
@@ -1380,8 +1398,8 @@ function renderSeason(ct){
   // Tabella andamento mensile (presenze per mese)
   const blk2=document.createElement('div'); blk2.className='riepilogo-block'; blk2.style.marginTop='16px';
   blk2.innerHTML=`<div class="riepilogo-header">
-    <span class="rep-name">ANDAMENTO MENSILE</span>
-    <span class="rep-prop">Presenze per dipendente, mese per mese</span>
+    <span class="rep-name">1. ANDAMENTO PRESENZE</span>
+    <span class="rep-prop">Giorni lavorati (P) per dipendente, mese per mese</span>
   </div>`;
   const wrap2=document.createElement('div'); wrap2.className='tbl-wrap';
   wrap2.style.maxHeight='500px'; wrap2.style.overflowY='auto';
@@ -1414,6 +1432,137 @@ function renderSeason(ct){
   h2+=`<td class="num" style="color:var(--navy)">${grandP}</td></tr></tbody></table>`;
   wrap2.innerHTML=h2; blk2.appendChild(wrap2);
   ct.appendChild(blk2);
+
+  // Tabella andamento riposi MATURATI per mese (basata su cumulato lavorato)
+  const blkM=document.createElement('div'); blkM.className='riepilogo-block'; blkM.style.marginTop='16px';
+  blkM.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">2. ANDAMENTO RIPOSI MATURATI</span>
+    <span class="rep-prop">Riposi maturati nel mese (1 ogni 6 giorni lavorati, cumulativo)</span>
+  </div>`;
+  const wrapM=document.createElement('div'); wrapM.className='tbl-wrap';
+  wrapM.style.maxHeight='500px'; wrapM.style.overflowY='auto';
+  let hM=`<table class="rie-tbl"><thead><tr><th>Dipendente</th>`;
+  SEASON_MONTHS.forEach(([m,y])=>hM+=`<th class="num">${MONTHS_IT[m].substring(0,3)} ${String(y).slice(2)}</th>`);
+  hM+=`<th class="num" style="background:var(--navy);color:var(--gold)">TOT</th></tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    let cumW=0, prevMat=0, tot=0;
+    hM+=`<tr><td>${emp.nome}</td>`;
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      const mm=es.monthly[key]||{};
+      cumW+=(mm['P']||0)+(mm['ST']||0);
+      const matCum=Math.floor(cumW/6);
+      const matMese=matCum-prevMat;
+      prevMat=matCum;
+      tot+=matMese;
+      hM+=`<td class="num" style="${matMese===0?'color:#ccc':''}">${matMese||'-'}</td>`;
+    });
+    hM+=`<td class="num" style="font-weight:700;color:var(--navy)">${tot}</td></tr>`;
+  });
+  hM+=`</tbody></table>`;
+  wrapM.innerHTML=hM; blkM.appendChild(wrapM);
+  ct.appendChild(blkM);
+
+  // Tabella andamento riposi (R per mese)
+  const blk3=document.createElement('div'); blk3.className='riepilogo-block'; blk3.style.marginTop='16px';
+  blk3.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">3. ANDAMENTO RIPOSI USATI</span>
+    <span class="rep-prop">Riposi (R) usati per dipendente, mese per mese</span>
+  </div>`;
+  const wrap3=document.createElement('div'); wrap3.className='tbl-wrap';
+  wrap3.style.maxHeight='500px'; wrap3.style.overflowY='auto';
+  let h3=`<table class="rie-tbl"><thead><tr><th>Dipendente</th>`;
+  SEASON_MONTHS.forEach(([m,y])=>h3+=`<th class="num">${MONTHS_IT[m].substring(0,3)} ${String(y).slice(2)}</th>`);
+  h3+=`<th class="num" style="background:var(--navy);color:var(--gold)">TOT</th></tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    let tot=0;
+    h3+=`<tr><td>${emp.nome}</td>`;
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      const r=es.monthly[key]?.['R']||0;
+      tot+=r;
+      h3+=`<td class="num" style="${r===0?'color:#ccc':''}">${r||'-'}</td>`;
+    });
+    h3+=`<td class="num" style="font-weight:700;color:var(--navy)">${tot}</td></tr>`;
+  });
+  h3+=`<tr style="background:#e8edf5;font-weight:700"><td>TOTALE</td>`;
+  let grandR=0;
+  SEASON_MONTHS.forEach(([m,y])=>{
+    const key=`${y}-${m}`;
+    let mTot=0;
+    allEmps.forEach(emp=>mTot+=(empStats[emp.id]?.monthly[key]?.['R']||0));
+    grandR+=mTot;
+    h3+=`<td class="num">${mTot||'-'}</td>`;
+  });
+  h3+=`<td class="num" style="color:var(--navy)">${grandR}</td></tr></tbody></table>`;
+  wrap3.innerHTML=h3; blk3.appendChild(wrap3);
+  ct.appendChild(blk3);
+
+  // Tabella andamento delta riposi (saldo cumulativo per mese)
+  const blk4=document.createElement('div'); blk4.className='riepilogo-block'; blk4.style.marginTop='16px';
+  blk4.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">4. ANDAMENTO Δ RIPOSI MENSILE</span>
+    <span class="rep-prop">Delta del mese (maturati - usati) per dipendente</span>
+  </div>`;
+  const wrap4=document.createElement('div'); wrap4.className='tbl-wrap';
+  wrap4.style.maxHeight='500px'; wrap4.style.overflowY='auto';
+  let h4=`<table class="rie-tbl"><thead><tr><th>Dipendente</th>`;
+  SEASON_MONTHS.forEach(([m,y])=>h4+=`<th class="num">${MONTHS_IT[m].substring(0,3)} ${String(y).slice(2)}</th>`);
+  h4+=`<th class="num" style="background:var(--navy);color:var(--gold)">FINALE</th></tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    let totD=0;
+    h4+=`<tr><td>${emp.nome}</td>`;
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      const mm=es.monthly[key]||{};
+      const w=(mm['P']||0)+(mm['ST']||0);
+      const u=(mm['R']||0);
+      const saldo=Math.floor(w/6)-u;
+      totD+=saldo;
+      const cls=saldo<0?'red':saldo>0?'green':'';
+      h4+=`<td class="num ${cls}">${saldo===0?'-':(saldo>0?'+':'')+saldo}</td>`;
+    });
+    const fcls=totD<0?'red':totD>0?'green':'';
+    h4+=`<td class="num ${fcls}" style="font-weight:700">${(totD>0?'+':'')+totD}</td></tr>`;
+  });
+  h4+=`</tbody></table>`;
+  wrap4.innerHTML=h4; blk4.appendChild(wrap4);
+  ct.appendChild(blk4);
+
+  // Tabella andamento delta riposi CUMULATIVO
+  const blk5=document.createElement('div'); blk5.className='riepilogo-block'; blk5.style.marginTop='16px';
+  blk5.innerHTML=`<div class="riepilogo-header">
+    <span class="rep-name">5. ANDAMENTO Δ RIPOSI CUMULATIVO</span>
+    <span class="rep-prop">Saldo progressivo (maturati - usati) da inizio stagione</span>
+  </div>`;
+  const wrap5=document.createElement('div'); wrap5.className='tbl-wrap';
+  wrap5.style.maxHeight='500px'; wrap5.style.overflowY='auto';
+  let h5=`<table class="rie-tbl"><thead><tr><th>Dipendente</th>`;
+  SEASON_MONTHS.forEach(([m,y])=>h5+=`<th class="num">${MONTHS_IT[m].substring(0,3)} ${String(y).slice(2)}</th>`);
+  h5+=`<th class="num" style="background:var(--navy);color:var(--gold)">FINALE</th></tr></thead><tbody>`;
+  allEmps.forEach(emp=>{
+    const es=empStats[emp.id];
+    let cumW=0, cumU=0;
+    h5+=`<tr><td>${emp.nome}</td>`;
+    SEASON_MONTHS.forEach(([m,y])=>{
+      const key=`${y}-${m}`;
+      const mm=es.monthly[key]||{};
+      cumW+=(mm['P']||0)+(mm['ST']||0);
+      cumU+=(mm['R']||0);
+      const saldo=Math.floor(cumW/6)-cumU;
+      const cls=saldo<0?'red':saldo>0?'green':'';
+      h5+=`<td class="num ${cls}">${(saldo>0?'+':'')+saldo}</td>`;
+    });
+    const fin=Math.floor(cumW/6)-cumU;
+    const fcls=fin<0?'red':fin>0?'green':'';
+    h5+=`<td class="num ${fcls}" style="font-weight:700">${(fin>0?'+':'')+fin}</td></tr>`;
+  });
+  h5+=`</tbody></table>`;
+  wrap5.innerHTML=h5; blk5.appendChild(wrap5);
+  ct.appendChild(blk5);
 }
 
 // ─── BOOT ────────────────────────────────────────────────────────────────────
